@@ -1,4 +1,3 @@
-use path_slash::PathBufExt;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -106,17 +105,21 @@ impl App {
     /// Read the contents of a file
     ///
     /// # Errors
-    /// This will error if the path doesn't exist, or if the contents isn't UTF-8
+    /// This will error if the path doesn't exist
     pub fn read_file(&self, name: &str) -> Result<String> {
-        let data = fs::read_to_string(PathBuf::from_slash_lossy(
-            self.source.join(name).as_os_str(),
-        ))
-        .with_context(|| {
+        let path = self.source.join(name);
+    
+        let data = fs::read(&path).with_context(|| {
             let relative_path = self.strip_source_path(Path::new(name)).unwrap();
             format!("Error reading {}", relative_path.to_str().unwrap())
         })?;
 
-        Ok(data.replace("\r\n", "\n"))
+        let data_str = match String::from_utf8(data.clone()) {
+            Ok(valid_str) => valid_str, 
+            Err(_) => String::from_utf8_lossy(&data).to_string(),
+        };
+    
+        Ok(data_str.replace("\r\n", "\n"))
     }
 
     /// Check whether filenames matching a pattern exist in the project.
